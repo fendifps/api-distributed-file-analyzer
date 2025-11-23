@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database - Usuarios y Tareas
+  postgres:
+    image: postgres:15-alpine
+    container_name: file-analyzer-postgres
+    environment:
+      POSTGRES_DB: fileanalyzer
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d fileanalyzer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - analyzer-network
+
+  # MongoDB - Logs y Auditoría
+  mongodb:
+    image: mongo:7
+    container_name: file-analyzer-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: logs
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - analyzer-network
+
+  # Redis - Queue y Cache
+  redis:
+    image: redis:7-alpine
+    container_name: file-analyzer-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - analyzer-network
+
+  # Gateway Service - Node.js/Express
+  gateway:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: file-analyzer-gateway
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 24h
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fileanalyzer
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ANALYZER_SERVICE_URL: http://analyzer:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./gateway-service/src:/app/src
+    networks:
+      - analyzer-network
+    restart: unless-stopped
+
+  # Analyzer Service - Python/FastAPI
+  analyzer:
+    build:
+      context: ./analyzer-service
+      dockerfile: Dockerfile
+    container_name: file-analyzer-api
+    environment:
+      ENVIRONMENT: development
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fileanalyzer
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      MONGODB_HOST: mongodb
+      MONGODB_PORT: 27017
+      MONGODB_USER: admin
+      MONGODB_PASSWORD: admin123
+      MONGODB_DB: logs
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./analyzer-service/app:/app/app
+      - analyzer_uploads:/app/uploads
+    networks:
+      - analyzer-network
+    restart: unless-stopped
+
+  # Worker Process - Procesamiento en Background
+  worker:
+    build:
+      context: ./analyzer-service
+      dockerfile: Dockerfile
+    container_name: file-analyzer-worker
+    command: python -m app.workers.file_worker
+    environment:
+      ENVIRONMENT: development
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fileanalyzer
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      MONGODB_HOST: mongodb
+      MONGODB_PORT: 27017
+      MONGODB_USER: admin
+      MONGODB_PASSWORD: admin123
+      MONGODB_DB: logs
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      UPLOAD_DIR: /app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./analyzer-service/app:/app/app
+      - analyzer_uploads:/app/uploads
+    networks:
+      - analyzer-network
+    restart: unless-stopped
+
+networks:
+  analyzer-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  analyzer_uploads:
