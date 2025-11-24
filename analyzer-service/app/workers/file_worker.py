@@ -15,6 +15,7 @@ from app.config import settings
 from app.database import SessionLocal, log_event
 from app.models.task import Task
 from app.redis_client import redis_conn
+from app.services.embedding_service import embedding_service
 
 
 def process_file(task_id: str, file_path: str):
@@ -25,12 +26,13 @@ def process_file(task_id: str, file_path: str):
         task_id: Task UUID
         file_path: Path to uploaded file
     
-    This function simulates file analysis by:
+    This function:
     1. Reading the file
     2. Counting lines, words, characters
-    3. Calculating processing time
-    4. Storing results in PostgreSQL
-    5. Logging to MongoDB
+    3. Generating semantic embedding
+    4. Calculating processing time
+    5. Storing results in PostgreSQL
+    6. Logging to MongoDB
     """
     
     print(f"📝 Processing task: {task_id}")
@@ -74,6 +76,13 @@ def process_file(task_id: str, file_path: str):
         word_count = len(content.split())
         char_count = len(content)
         
+        # Generate embedding (NEW!)
+        print(f"   Generating embedding...")
+        embedding = embedding_service.generate_embedding(content, max_length=2000)
+        
+        # Store preview
+        content_preview = content[:500] if len(content) > 500 else content
+        
         # Simulate processing delay (remove in production)
         time.sleep(2)
         
@@ -85,6 +94,8 @@ def process_file(task_id: str, file_path: str):
             'lineCount': line_count,
             'wordCount': word_count,
             'characterCount': char_count,
+            'hasEmbedding': embedding is not None,
+            'embeddingDimensions': len(embedding) if embedding else 0,
             'processingTime': f"{processing_time:.2f}s",
             'analyzedAt': datetime.utcnow().isoformat()
         }
@@ -92,11 +103,15 @@ def process_file(task_id: str, file_path: str):
         # Update task with result
         task.status = "completed"
         task.result = result
+        task.embedding = embedding
+        task.content_preview = content_preview
         task.completed_at = datetime.utcnow()
         db.commit()
         
         print(f"✅ Task {task_id} completed successfully")
         print(f"   Lines: {line_count}, Words: {word_count}, Chars: {char_count}")
+        if embedding:
+            print(f"   Embedding: {len(embedding)} dimensions")
         
         # Log completion
         log_event('task_processing', {

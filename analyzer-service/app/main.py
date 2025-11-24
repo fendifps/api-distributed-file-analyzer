@@ -10,7 +10,7 @@ import uvicorn
 
 from app.config import settings
 from app.database import init_db, close_db
-from app.routes import upload, tasks
+from app.routes import upload, tasks, similarity
 
 
 @asynccontextmanager
@@ -60,6 +60,7 @@ async def health_check():
 # Include routers
 app.include_router(upload.router, prefix="/api/v1", tags=["Upload"])
 app.include_router(tasks.router, prefix="/api/v1", tags=["Tasks"])
+app.include_router(similarity.router, prefix="/api/v1", tags=["Similarity"])
 
 # Root endpoint
 @app.get("/", tags=["Root"])

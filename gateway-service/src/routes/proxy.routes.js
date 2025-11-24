@@ -121,4 +121,63 @@ router.get('/tasks', authenticate, async (req, res, next) => {
   }
 });
 
+/**
+ * @route   GET /api/analyzer/similarity/search/:taskId
+ * @desc    Find similar documents to a given task
+ * @access  Private
+ */
+router.get('/similarity/search/:taskId', authenticate, async (req, res, next) => {
+  try {
+    const { taskId } = req.params;
+    const { top_k } = req.query;
+
+    const response = await axios.get(
+      `${ANALYZER_URL}/api/v1/similarity/search/${taskId}`,
+      {
+        params: {
+          user_id: req.user.id,
+          top_k: top_k || 5
+        }
+      }
+    );
+
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/analyzer/similarity/compare
+ * @desc    Compare similarity between two documents
+ * @access  Private
+ */
+router.post('/similarity/compare', authenticate, async (req, res, next) => {
+  try {
+    const { task_id_1, task_id_2 } = req.query;
+
+    const response = await axios.post(
+      `${ANALYZER_URL}/api/v1/similarity/compare`,
+      {},
+      {
+        params: {
+          task_id_1,
+          task_id_2,
+          user_id: req.user.id
+        }
+      }
+    );
+
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    next(error);
+  }
+});
+
 module.exports = router;

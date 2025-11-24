@@ -1,0 +1,3 @@
+This is a sample file for testing the API Distributed File Analyzer.
+The file demonstrates ML embeddings and semantic similarity search.
+Python is used for the analyzer service with FastAPI framework.

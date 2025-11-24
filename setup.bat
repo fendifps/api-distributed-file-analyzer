@@ -1,398 +1,485 @@
 @echo off
-REM ================================================================================
-REM API Distributed File Analyzer - Windows Setup Script
-REM Este script automatiza la descarga, configuración e inicio del proyecto
-REM ================================================================================
-
 setlocal EnableDelayedExpansion
-title API Distributed File Analyzer - Setup
 
-REM Colores usando PowerShell
-set "GREEN=[92m"
-set "YELLOW=[93m"
-set "RED=[91m"
-set "BLUE=[94m"
-set "NC=[0m"
+REM ================================================================================
+REM   API Distributed File Analyzer - Setup Profesional
+REM   Machine Learning + Semantic Search + Microservices
+REM   Version 3.0 - Ultra Estable
+REM ================================================================================
 
+title API File Analyzer - Professional Setup
+
+REM Verificar que estamos en el directorio correcto
+if not exist "docker-compose.yml" (
+    echo ERROR: No se encuentra docker-compose.yml
+    echo Ejecuta este script desde la raiz del proyecto
+    pause
+    exit /b 1
+)
+
+REM Mantener ventana abierta
+if "%1"=="" (
+    cmd /k "%~f0 run"
+    exit
+)
+
+cls
 echo.
 echo ================================================================================
-echo   API Distributed File Analyzer - Setup para Windows
+echo.
+echo           API DISTRIBUTED FILE ANALYZER - PROFESSIONAL SETUP
+echo.
+echo           Machine Learning + Semantic Search + Microservices
+echo.
 echo ================================================================================
 echo.
+timeout /t 2 /nobreak >nul
 
 REM ============================================================================
-REM 1. VERIFICAR PRERREQUISITOS
+REM   DETECTAR ESTADO DEL SISTEMA
+REM ============================================================================
+
+:detect_first_run
+cls
+echo.
+echo [DETECCION] Analizando estado del sistema...
+echo.
+
+set FIRST_RUN=0
+set IMAGES_EXIST=0
+set CONTAINERS_EXIST=0
+set RUNNING=0
+
+REM Verificar imagenes
+docker images 2>nul | findstr "api-distributed-file-analyzer" >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    set IMAGES_EXIST=1
+    echo [OK] Imagenes Docker encontradas
+) else (
+    set FIRST_RUN=1
+    echo [INFO] No hay imagenes - Primera ejecucion
+)
+
+REM Verificar contenedores
+docker-compose ps -a 2>nul | findstr "file-analyzer" >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    set CONTAINERS_EXIST=1
+    echo [OK] Contenedores encontrados
+) else (
+    echo [INFO] No hay contenedores creados
+)
+
+REM Verificar si esta corriendo
+docker-compose ps 2>nul | findstr "Up" >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    set RUNNING=1
+    echo [OK] Sistema ya esta corriendo
+    timeout /t 2 /nobreak >nul
+    goto show_running_info
+)
+
+echo.
+timeout /t 2 /nobreak >nul
+
+REM ============================================================================
+REM   VERIFICAR PRERREQUISITOS
 REM ============================================================================
 
 :check_prerequisites
-echo [%BLUE%INFO%NC%] Verificando prerrequisitos...
+cls
+echo.
+echo [PASO 1/7] VERIFICANDO PRERREQUISITOS
+echo --------------------------------------------------------------------------------
 echo.
 
-REM Verificar Git
-where git >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [%RED%ERROR%NC%] Git no esta instalado
-    echo [%YELLOW%SOLUCION%NC%] Descarga Git desde: https://git-scm.com/download/win
-    pause
-    exit /b 1
-) else (
-    echo [%GREEN%OK%NC%] Git instalado
-)
-
-REM Verificar Docker Desktop
 where docker >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [%RED%ERROR%NC%] Docker no esta instalado
-    echo [%YELLOW%SOLUCION%NC%] Descarga Docker Desktop desde: https://www.docker.com/products/docker-desktop
+if !ERRORLEVEL! NEQ 0 (
+    echo [ERROR] Docker no esta instalado
+    echo.
+    echo Descarga Docker Desktop desde:
+    echo https://www.docker.com/products/docker-desktop
+    echo.
     pause
     exit /b 1
-) else (
-    echo [%GREEN%OK%NC%] Docker instalado
 )
+echo [OK] Docker instalado
 
-REM Verificar que Docker esté corriendo
 docker ps >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [%RED%ERROR%NC%] Docker Desktop no esta corriendo
-    echo [%YELLOW%SOLUCION%NC%] Inicia Docker Desktop y ejecuta este script nuevamente
+if !ERRORLEVEL! NEQ 0 (
+    echo [ERROR] Docker Desktop no esta corriendo
+    echo.
+    echo Por favor inicia Docker Desktop y ejecuta este script nuevamente
+    echo.
     pause
     exit /b 1
-) else (
-    echo [%GREEN%OK%NC%] Docker Desktop esta corriendo
 )
+echo [OK] Docker Desktop corriendo
 
-REM Verificar Docker Compose
 docker-compose --version >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [%RED%ERROR%NC%] Docker Compose no esta instalado
+if !ERRORLEVEL! NEQ 0 (
+    echo [ERROR] Docker Compose no esta instalado
     pause
     exit /b 1
+)
+echo [OK] Docker Compose instalado
+
+echo.
+echo [EXITO] Todos los prerrequisitos verificados
+timeout /t 2 /nobreak >nul
+
+REM ============================================================================
+REM   VERIFICAR ESTRUCTURA
+REM ============================================================================
+
+:check_structure
+cls
+echo.
+echo [PASO 2/7] VERIFICANDO ESTRUCTURA DEL PROYECTO
+echo --------------------------------------------------------------------------------
+echo.
+
+set STRUCTURE_OK=1
+
+if not exist "gateway-service\src" (
+    echo [ERROR] Falta: gateway-service\src
+    set STRUCTURE_OK=0
 ) else (
-    echo [%GREEN%OK%NC%] Docker Compose instalado
+    echo [OK] gateway-service\src
+)
+
+if not exist "analyzer-service\app" (
+    echo [ERROR] Falta: analyzer-service\app
+    set STRUCTURE_OK=0
+) else (
+    echo [OK] analyzer-service\app
+)
+
+if not exist "analyzer-service\app\services\embedding_service.py" (
+    echo [WARN] Falta: embedding_service.py (ML)
+) else (
+    echo [OK] embedding_service.py (ML)
+)
+
+if not exist "analyzer-service\app\routes\similarity.py" (
+    echo [WARN] Falta: similarity.py (Busqueda)
+) else (
+    echo [OK] similarity.py (Busqueda)
+)
+
+if !STRUCTURE_OK! EQU 0 (
+    echo.
+    echo [ERROR] Estructura del proyecto incompleta
+    set /p continue="Continuar de todos modos? (S/N): "
+    if /i not "!continue!"=="S" exit /b 1
 )
 
 echo.
-echo [%GREEN%EXITO%NC%] Todos los prerrequisitos estan instalados
-echo.
-pause
+echo [EXITO] Estructura verificada
+timeout /t 2 /nobreak >nul
 
 REM ============================================================================
-REM 2. CLONAR O USAR REPOSITORIO
+REM   CONFIGURAR VARIABLES DE ENTORNO
 REM ============================================================================
 
-:setup_repository
+:setup_env
 cls
 echo.
-echo ================================================================================
-echo   Configuracion del Repositorio
-echo ================================================================================
-echo.
-echo Opciones:
-echo   1. Crear estructura de carpetas en el directorio actual
-echo   2. Clonar desde GitHub (si ya subiste el repo)
-echo   3. Salir
-echo.
-set /p repo_choice="Selecciona una opcion (1-3): "
-
-if "%repo_choice%"=="1" goto create_structure
-if "%repo_choice%"=="2" goto clone_repo
-if "%repo_choice%"=="3" exit /b 0
-goto setup_repository
-
-:clone_repo
-echo.
-set /p repo_url="Ingresa la URL del repositorio GitHub: "
-echo.
-echo [%BLUE%INFO%NC%] Clonando repositorio...
-git clone %repo_url% api-distributed-file-analyzer
-cd api-distributed-file-analyzer
-echo [%GREEN%OK%NC%] Repositorio clonado
-goto setup_environment
-
-:create_structure
-echo.
-echo [%BLUE%INFO%NC%] Creando estructura de carpetas...
-
-REM Crear directorios principales
-if not exist "gateway-service" mkdir gateway-service
-if not exist "analyzer-service" mkdir analyzer-service
-if not exist "scripts" mkdir scripts
-
-REM Gateway Service
-mkdir gateway-service\src\config 2>nul
-mkdir gateway-service\src\middleware 2>nul
-mkdir gateway-service\src\routes 2>nul
-mkdir gateway-service\src\controllers 2>nul
-mkdir gateway-service\src\models 2>nul
-mkdir gateway-service\src\utils 2>nul
-
-REM Analyzer Service
-mkdir analyzer-service\app\models 2>nul
-mkdir analyzer-service\app\routes 2>nul
-mkdir analyzer-service\app\services 2>nul
-mkdir analyzer-service\app\workers 2>nul
-
-echo [%GREEN%OK%NC%] Estructura de carpetas creada
-echo.
-echo [%YELLOW%IMPORTANTE%NC%] Ahora debes copiar todos los archivos de codigo
-echo que te proporcione Claude en sus respectivas carpetas.
-echo.
-echo Estructura creada:
-echo   - gateway-service/
-echo   - analyzer-service/
-echo   - scripts/
-echo.
-echo Presiona cualquier tecla cuando hayas copiado todos los archivos...
-pause >nul
-
-REM ============================================================================
-REM 3. CONFIGURAR AMBIENTE
-REM ============================================================================
-
-:setup_environment
-cls
-echo.
-echo ================================================================================
-echo   Configuracion del Ambiente
-echo ================================================================================
+echo [PASO 3/7] CONFIGURANDO VARIABLES DE ENTORNO
+echo --------------------------------------------------------------------------------
 echo.
 
-REM Crear archivo .env
 if exist ".env" (
-    echo [%YELLOW%ADVERTENCIA%NC%] El archivo .env ya existe
-    set /p overwrite="Deseas sobrescribirlo? (S/N): "
-    if /i not "!overwrite!"=="S" goto skip_env
+    echo [INFO] Archivo .env ya existe
+    set /p overwrite="Sobrescribir? (S/N): "
+    if /i not "!overwrite!"=="S" (
+        echo [INFO] Usando .env existente
+        timeout /t 1 /nobreak >nul
+        goto pull_images
+    )
 )
 
-echo [%BLUE%INFO%NC%] Creando archivo .env...
+echo [INFO] Creando archivo .env...
 
 (
-echo # Gateway Service Configuration
+echo # Gateway Service
 echo NODE_ENV=development
 echo PORT=3000
 echo JWT_SECRET=your-super-secret-jwt-key-change-in-production
 echo JWT_EXPIRES_IN=24h
 echo.
-echo # Analyzer Service Configuration
+echo # Analyzer Service
 echo ENVIRONMENT=development
 echo.
-echo # PostgreSQL Configuration
+echo # PostgreSQL
 echo POSTGRES_HOST=postgres
 echo POSTGRES_PORT=5432
 echo POSTGRES_DB=fileanalyzer
 echo POSTGRES_USER=admin
 echo POSTGRES_PASSWORD=admin123
 echo.
-echo # MongoDB Configuration
+echo # MongoDB
 echo MONGODB_HOST=mongodb
 echo MONGODB_PORT=27017
 echo MONGODB_USER=admin
 echo MONGODB_PASSWORD=admin123
 echo MONGODB_DB=logs
 echo.
-echo # Redis Configuration
+echo # Redis
 echo REDIS_HOST=redis
 echo REDIS_PORT=6379
+echo REDIS_DB=0
 echo.
-echo # Service URLs
+echo # Services
 echo ANALYZER_SERVICE_URL=http://analyzer:8000
 echo.
-echo # File Upload Configuration
+echo # Upload
 echo UPLOAD_DIR=/app/uploads
 echo MAX_UPLOAD_SIZE=10485760
 ) > .env
 
-echo [%GREEN%OK%NC%] Archivo .env creado
-goto pull_images
-
-:skip_env
-echo [%BLUE%INFO%NC%] Usando archivo .env existente
+echo [OK] Archivo .env creado exitosamente
+timeout /t 2 /nobreak >nul
 
 REM ============================================================================
-REM 4. DESCARGAR IMAGENES DOCKER
+REM   DESCARGAR IMAGENES
 REM ============================================================================
 
 :pull_images
+if !IMAGES_EXIST! EQU 1 (
+    cls
+    echo.
+    echo [PASO 4/7] DESCARGA DE IMAGENES
+    echo --------------------------------------------------------------------------------
+    echo.
+    echo [INFO] Imagenes ya descargadas - Saltando paso
+    timeout /t 2 /nobreak >nul
+    goto build_or_start
+)
+
+cls
 echo.
-echo ================================================================================
-echo   Descargando Imagenes Docker
-echo ================================================================================
+echo [PASO 4/7] DESCARGANDO IMAGENES DOCKER
+echo --------------------------------------------------------------------------------
 echo.
-echo [%BLUE%INFO%NC%] Esto puede tomar varios minutos...
+echo [INFO] Esto puede tomar 5-10 minutos en la primera ejecucion
 echo.
 
-echo [%BLUE%INFO%NC%] Descargando PostgreSQL 15...
+echo [INFO] Descargando PostgreSQL 15...
 docker pull postgres:15-alpine
-echo [%GREEN%OK%NC%] PostgreSQL descargado
-echo.
+echo [OK] PostgreSQL descargado
 
-echo [%BLUE%INFO%NC%] Descargando MongoDB 7...
+echo [INFO] Descargando MongoDB 7...
 docker pull mongo:7
-echo [%GREEN%OK%NC%] MongoDB descargado
-echo.
+echo [OK] MongoDB descargado
 
-echo [%BLUE%INFO%NC%] Descargando Redis 7...
+echo [INFO] Descargando Redis 7...
 docker pull redis:7-alpine
-echo [%GREEN%OK%NC%] Redis descargado
-echo.
+echo [OK] Redis descargado
 
-echo [%BLUE%INFO%NC%] Descargando Node.js 20...
+echo [INFO] Descargando Node.js 20...
 docker pull node:20-alpine
-echo [%GREEN%OK%NC%] Node.js descargado
-echo.
+echo [OK] Node.js descargado
 
-echo [%BLUE%INFO%NC%] Descargando Python 3.11...
+echo [INFO] Descargando Python 3.11...
 docker pull python:3.11-slim
-echo [%GREEN%OK%NC%] Python descargado
-echo.
+echo [OK] Python descargado
 
-echo [%GREEN%EXITO%NC%] Todas las imagenes base descargadas
 echo.
-pause
+echo [EXITO] Todas las imagenes descargadas
+timeout /t 2 /nobreak >nul
 
 REM ============================================================================
-REM 5. CONSTRUIR SERVICIOS
+REM   CONSTRUIR O INICIAR
+REM ============================================================================
+
+:build_or_start
+if !IMAGES_EXIST! EQU 1 if !CONTAINERS_EXIST! EQU 1 (
+    cls
+    echo.
+    echo [INFO] Sistema ya configurado - Iniciando servicios...
+    timeout /t 2 /nobreak >nul
+    goto start_services
+)
+
+REM ============================================================================
+REM   CONSTRUIR SERVICIOS
 REM ============================================================================
 
 :build_services
 cls
 echo.
-echo ================================================================================
-echo   Construyendo Servicios
-echo ================================================================================
+echo [PASO 5/7] CONSTRUYENDO SERVICIOS
+echo --------------------------------------------------------------------------------
 echo.
-echo [%BLUE%INFO%NC%] Construyendo contenedores Docker...
-echo [%BLUE%INFO%NC%] Esto puede tomar 5-10 minutos la primera vez...
+if !FIRST_RUN! EQU 1 (
+    echo [INFO] Primera construccion: 10-15 minutos
+    echo [INFO] Se descargara el modelo ML (aprox. 150MB)
+) else (
+    echo [INFO] Reconstruyendo: 2-3 minutos
+)
+echo.
+echo Por favor espera...
 echo.
 
 docker-compose build
 
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo.
-    echo [%RED%ERROR%NC%] Fallo al construir los servicios
-    echo [%YELLOW%POSIBLES CAUSAS%NC%]:
-    echo   1. Archivos faltantes en gateway-service o analyzer-service
-    echo   2. Error en los Dockerfiles
-    echo   3. Problema de conexion a internet
+    echo [ERROR] Fallo al construir servicios
+    echo.
+    echo Posibles causas:
+    echo   - Archivos faltantes
+    echo   - Error en requirements.txt
+    echo   - Conexion a internet
     echo.
     pause
     exit /b 1
 )
 
 echo.
-echo [%GREEN%EXITO%NC%] Servicios construidos exitosamente
-echo.
-pause
+echo [EXITO] Servicios construidos exitosamente
+timeout /t 2 /nobreak >nul
 
 REM ============================================================================
-REM 6. INICIAR SERVICIOS
+REM   INICIAR SERVICIOS
 REM ============================================================================
 
 :start_services
 cls
 echo.
-echo ================================================================================
-echo   Iniciando Servicios
-echo ================================================================================
-echo.
-echo [%BLUE%INFO%NC%] Iniciando todos los servicios...
+echo [PASO 6/7] INICIANDO SERVICIOS
+echo --------------------------------------------------------------------------------
 echo.
 
 docker-compose up -d
 
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo [%RED%ERROR%NC%] Fallo al iniciar los servicios
+if !ERRORLEVEL! NEQ 0 (
+    echo [ERROR] Fallo al iniciar servicios
     pause
     exit /b 1
 )
 
-echo [%GREEN%OK%NC%] Servicios iniciados
-echo.
-echo [%BLUE%INFO%NC%] Esperando a que los servicios esten listos (30 segundos)...
-
+echo [INFO] Esperando que los servicios esten listos (30 segundos)...
 timeout /t 30 /nobreak >nul
 
 REM ============================================================================
-REM 7. VERIFICAR ESTADO
+REM   VERIFICAR ESTADO
 REM ============================================================================
 
-:check_status
+:verify_status
 cls
 echo.
-echo ================================================================================
-echo   Estado de los Servicios
-echo ================================================================================
+echo [PASO 7/7] VERIFICANDO ESTADO DE SERVICIOS
+echo --------------------------------------------------------------------------------
 echo.
 
 docker-compose ps
 
 echo.
-echo ================================================================================
-echo   Verificando Health Checks
-echo ================================================================================
+echo [INFO] Verificando health checks...
 echo.
 
-REM Verificar Gateway
 curl -s http://localhost:3000/health >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [%GREEN%OK%NC%] Gateway Service esta corriendo en http://localhost:3000
+if !ERRORLEVEL! EQU 0 (
+    echo [OK] Gateway Service - http://localhost:3000
 ) else (
-    echo [%YELLOW%ADVERTENCIA%NC%] Gateway Service puede no estar listo aun
+    echo [WARN] Gateway Service - Puede no estar listo aun
 )
 
-REM Verificar Analyzer
 curl -s http://localhost:8000/health >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [%GREEN%OK%NC%] Analyzer Service esta corriendo en http://localhost:8000
+if !ERRORLEVEL! EQU 0 (
+    echo [OK] Analyzer Service - http://localhost:8000
 ) else (
-    echo [%YELLOW%ADVERTENCIA%NC%] Analyzer Service puede no estar listo aun
+    echo [WARN] Analyzer Service - Puede no estar listo aun
 )
+
+echo.
+timeout /t 3 /nobreak >nul
+goto show_info
 
 REM ============================================================================
-REM 8. MOSTRAR INFORMACION
+REM   SISTEMA YA CORRIENDO
+REM ============================================================================
+
+:show_running_info
+cls
+echo.
+echo ================================================================================
+echo                    SISTEMA YA ESTA CORRIENDO
+echo ================================================================================
+echo.
+echo Estado actual:
+echo.
+
+docker-compose ps
+
+echo.
+echo URLs disponibles:
+echo   - Gateway:  http://localhost:3000/health
+echo   - Analyzer: http://localhost:8000/docs
+echo.
+echo --------------------------------------------------------------------------------
+echo.
+set /p goto_menu="Ir al menu principal? (S/N): "
+if /i "!goto_menu!"=="S" goto main_menu
+echo.
+pause
+exit
+
+REM ============================================================================
+REM   MOSTRAR INFORMACION
 REM ============================================================================
 
 :show_info
+cls
 echo.
 echo ================================================================================
-echo   INFORMACION DE ACCESO
+echo                    SISTEMA INICIADO CORRECTAMENTE
 echo ================================================================================
+echo.
+echo SERVICIOS DISPONIBLES:
+echo --------------------------------------------------------------------------------
 echo.
 echo   Gateway Service:
-echo     - URL:          http://localhost:3000
-echo     - Health:       http://localhost:3000/health
-echo     - Registro:     POST http://localhost:3000/api/auth/register
-echo     - Login:        POST http://localhost:3000/api/auth/login
+echo   - URL:     http://localhost:3000
+echo   - Health:  http://localhost:3000/health
+echo   - API:     http://localhost:3000/api/auth
 echo.
 echo   Analyzer Service:
-echo     - URL:          http://localhost:8000
-echo     - Health:       http://localhost:8000/health
-echo     - Docs:         http://localhost:8000/docs
-echo     - OpenAPI:      http://localhost:8000/openapi.json
+echo   - URL:     http://localhost:8000
+echo   - Health:  http://localhost:8000/health
+echo   - Docs:    http://localhost:8000/docs (Swagger UI)
 echo.
-echo ================================================================================
-echo   PRUEBA RAPIDA
-echo ================================================================================
+echo FUNCIONES DE MACHINE LEARNING:
+echo --------------------------------------------------------------------------------
 echo.
-echo   1. Registrar usuario:
-echo      curl -X POST http://localhost:3000/api/auth/register ^
-echo        -H "Content-Type: application/json" ^
-echo        -d "{\"email\":\"test@test.com\",\"password\":\"test123\",\"name\":\"Test User\"}"
+echo   Busqueda Semantica:
+echo   - GET /api/analyzer/similarity/search/:taskId
+echo   - Encuentra documentos similares por contenido
 echo.
-echo   2. Login:
-echo      curl -X POST http://localhost:3000/api/auth/login ^
-echo        -H "Content-Type: application/json" ^
-echo        -d "{\"email\":\"test@test.com\",\"password\":\"test123\"}"
+echo   Comparacion de Documentos:
+echo   - POST /api/analyzer/similarity/compare
+echo   - Compara similitud entre dos documentos
 echo.
-echo ================================================================================
-echo   COMANDOS UTILES
-echo ================================================================================
+echo   Modelo ML: all-MiniLM-L6-v2 (384D embeddings)
+echo   Performance: aprox. 0.3s por documento
 echo.
-echo   Ver logs:              docker-compose logs -f
-echo   Detener servicios:     docker-compose down
-echo   Reiniciar servicios:   docker-compose restart
-echo   Limpiar todo:          docker-compose down -v
+echo PRUEBA RAPIDA:
+echo --------------------------------------------------------------------------------
+echo.
+echo   1. Registrar:  POST /api/auth/register
+echo   2. Login:      POST /api/auth/login
+echo   3. Subir:      POST /api/analyzer/upload
+echo   4. Buscar ML:  GET /api/analyzer/similarity/search/:id
+echo.
+echo COMANDOS UTILES:
+echo --------------------------------------------------------------------------------
+echo.
+echo   docker-compose logs -f         Ver logs en tiempo real
+echo   docker-compose ps              Ver estado de servicios
+echo   docker-compose restart         Reiniciar servicios
+echo   docker-compose down            Detener servicios
+echo   docker-compose down -v         Limpiar todo
 echo.
 echo ================================================================================
 
@@ -400,130 +487,170 @@ REM Crear archivo de prueba
 if not exist "test-sample.txt" (
     (
     echo This is a sample file for testing the API Distributed File Analyzer.
-    echo The file contains multiple lines of text.
-    echo Each line will be counted by the analyzer service.
-    echo It also counts words and characters.
-    echo This demonstrates the complete file processing workflow.
+    echo The file demonstrates ML embeddings and semantic similarity search.
+    echo Python is used for the analyzer service with FastAPI framework.
     ) > test-sample.txt
-    echo [%GREEN%OK%NC%] Archivo de prueba creado: test-sample.txt
     echo.
+    echo [OK] Archivo de prueba creado: test-sample.txt
 )
 
-REM Preguntar si abrir navegador
-set /p open_browser="Deseas abrir la documentacion en el navegador? (S/N): "
-if /i "%open_browser%"=="S" (
+echo.
+set /p open_browser="Abrir documentacion en el navegador? (S/N): "
+if /i "!open_browser!"=="S" (
     start http://localhost:8000/docs
     start http://localhost:3000/health
 )
 
 echo.
-echo [%GREEN%EXITO%NC%] Setup completado exitosamente!
+echo [EXITO] Setup completado exitosamente
 echo.
-echo Presiona cualquier tecla para ver el menu principal...
-pause >nul
+pause
+goto main_menu
 
 REM ============================================================================
-REM 9. MENU PRINCIPAL
+REM   MENU PRINCIPAL
 REM ============================================================================
 
 :main_menu
 cls
 echo.
 echo ================================================================================
-echo   API Distributed File Analyzer - Menu Principal
+echo                    API FILE ANALYZER - MENU PRINCIPAL
 echo ================================================================================
 echo.
 echo   1. Ver estado de servicios
 echo   2. Ver logs en tiempo real
-echo   3. Reiniciar servicios
-echo   4. Detener servicios
-echo   5. Iniciar servicios
-echo   6. Abrir documentacion
-echo   7. Limpiar todo (eliminar contenedores y volumenes)
-echo   8. Ver informacion de acceso
+echo   3. Ver logs del ML Worker
+echo   4. Reiniciar servicios
+echo   5. Detener servicios
+echo   6. Iniciar servicios
+echo   7. Abrir documentacion (Swagger)
+echo   8. Ver informacion completa
+echo   9. Limpiar todo (PRECAUCION)
 echo   0. Salir
 echo.
-set /p menu_choice="Selecciona una opcion (0-8): "
+echo --------------------------------------------------------------------------------
+echo.
+set /p choice="Selecciona una opcion (0-9): "
 
-if "%menu_choice%"=="1" goto show_status
-if "%menu_choice%"=="2" goto show_logs
-if "%menu_choice%"=="3" goto restart_services
-if "%menu_choice%"=="4" goto stop_services
-if "%menu_choice%"=="5" goto start_services
-if "%menu_choice%"=="6" goto open_docs
-if "%menu_choice%"=="7" goto clean_all
-if "%menu_choice%"=="8" goto show_info_loop
-if "%menu_choice%"=="0" goto exit_script
+if "%choice%"=="1" goto menu_status
+if "%choice%"=="2" goto menu_logs
+if "%choice%"=="3" goto menu_ml_logs
+if "%choice%"=="4" goto menu_restart
+if "%choice%"=="5" goto menu_stop
+if "%choice%"=="6" goto menu_start
+if "%choice%"=="7" goto menu_docs
+if "%choice%"=="8" goto show_info
+if "%choice%"=="9" goto menu_clean
+if "%choice%"=="0" goto exit_script
 goto main_menu
 
-:show_status
+:menu_status
 cls
 echo.
-echo ================================================================================
-echo   Estado de los Servicios
-echo ================================================================================
+echo ESTADO DE SERVICIOS
+echo --------------------------------------------------------------------------------
 echo.
 docker-compose ps
 echo.
+echo --------------------------------------------------------------------------------
 pause
 goto main_menu
 
-:show_logs
+:menu_logs
 cls
 echo.
-echo ================================================================================
-echo   Logs en Tiempo Real (Ctrl+C para salir)
-echo ================================================================================
+echo LOGS EN TIEMPO REAL (Ctrl+C para salir)
+echo --------------------------------------------------------------------------------
 echo.
 docker-compose logs -f
 goto main_menu
 
-:restart_services
+:menu_ml_logs
+cls
 echo.
-echo [%BLUE%INFO%NC%] Reiniciando servicios...
-docker-compose restart
-echo [%GREEN%OK%NC%] Servicios reiniciados
-timeout /t 3 >nul
+echo LOGS DEL ML WORKER (Ctrl+C para salir)
+echo --------------------------------------------------------------------------------
+echo.
+docker-compose logs -f analyzer worker
 goto main_menu
 
-:stop_services
+:menu_restart
+cls
 echo.
-echo [%BLUE%INFO%NC%] Deteniendo servicios...
+echo [INFO] Reiniciando servicios...
+docker-compose restart
+echo [OK] Servicios reiniciados
+timeout /t 3 /nobreak >nul
+goto main_menu
+
+:menu_stop
+cls
+echo.
+echo [INFO] Deteniendo servicios...
 docker-compose down
-echo [%GREEN%OK%NC%] Servicios detenidos
+echo [OK] Servicios detenidos
+echo.
 pause
 goto main_menu
 
-:open_docs
+:menu_start
+cls
+echo.
+echo [INFO] Iniciando servicios...
+docker-compose up -d
+echo [OK] Servicios iniciados
+timeout /t 3 /nobreak >nul
+goto main_menu
+
+:menu_docs
 start http://localhost:8000/docs
 start http://localhost:3000/health
-echo [%GREEN%OK%NC%] Documentacion abierta en el navegador
-timeout /t 2 >nul
+cls
+echo.
+echo [OK] Documentacion abierta en el navegador
+timeout /t 2 /nobreak >nul
 goto main_menu
 
-:clean_all
+:menu_clean
+cls
 echo.
-echo [%YELLOW%ADVERTENCIA%NC%] Esto eliminara TODOS los contenedores y volumenes
-echo Perderas TODOS los datos (usuarios, tareas, logs)
+echo ADVERTENCIA: LIMPIEZA COMPLETA
+echo --------------------------------------------------------------------------------
 echo.
-set /p confirm="Estas seguro? (S/N): "
-if /i not "%confirm%"=="S" goto main_menu
+echo Esta accion eliminara:
+echo   - Todos los contenedores
+echo   - Todos los volumenes (datos de BD)
+echo   - Usuarios registrados
+echo   - Tareas procesadas
+echo   - Embeddings generados
 echo.
-echo [%BLUE%INFO%NC%] Limpiando todo...
+set /p confirm="Estas seguro? Escribe 'SI' para confirmar: "
+if /i not "!confirm!"=="SI" (
+    echo.
+    echo [INFO] Operacion cancelada
+    timeout /t 2 /nobreak >nul
+    goto main_menu
+)
+
+echo.
+echo [INFO] Limpiando sistema...
 docker-compose down -v
-echo [%GREEN%OK%NC%] Limpieza completada
+echo [OK] Limpieza completada
+echo.
+echo El sistema ha sido restaurado a su estado inicial
+echo Ejecuta este script nuevamente para reinstalar
+echo.
 pause
-goto main_menu
-
-:show_info_loop
-call :show_info
-pause
-goto main_menu
+exit
 
 :exit_script
+cls
 echo.
-echo [%BLUE%INFO%NC%] Saliendo...
-echo [%YELLOW%NOTA%NC%] Los servicios seguiran corriendo en segundo plano
+echo [INFO] Saliendo del script...
+echo.
+echo Los servicios seguiran corriendo en segundo plano
 echo Para detenerlos ejecuta: docker-compose down
 echo.
-exit /b 0
+timeout /t 2 /nobreak >nul
+exit
